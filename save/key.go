@@ -32,11 +32,12 @@ type KeyMap struct {
 	Create     key.Binding `yaml:"create"`
 	Remove     key.Binding `yaml:"remove"`
 	CloseTab   key.Binding `yaml:"close_tab"`
-	DumpScreen key.Binding `yaml:"dump_screen"` // used by lists, and join input type switch
+	DumpScreen key.Binding `yaml:"dump_screen"`
 
 	// Tab Binds
 	Next     key.Binding `yaml:"next"`
 	Previous key.Binding `yaml:"previous"`
+	TabJump  key.Binding `yaml:"tab_jump"`
 
 	// Quick Join
 	QuickJoin key.Binding `yaml:"quick_join"`
@@ -46,13 +47,10 @@ type KeyMap struct {
 	InspectMode  key.Binding `yaml:"inspect_mode"`
 	ChatPopUp    key.Binding `yaml:"chat_pop_up"`
 	ChannelPopUp key.Binding `yaml:"channel_pop_up"`
-	GoToTop      key.Binding `yaml:"go_to_top"`
-	GoToBottom   key.Binding `yaml:"go_to_bottom"`
 	DumpChat     key.Binding `yaml:"dump_chat"`
 	QuickTimeout key.Binding `yaml:"quick_timeout"`
 	CopyMessage  key.Binding `yaml:"copy_message"`
 	SearchMode   key.Binding `yaml:"search_mode"`
-	QuickSent    key.Binding `yaml:"quick_sent"`
 
 	// Account Binds
 	MarkLeader key.Binding `yaml:"mark_leader"`
@@ -126,8 +124,7 @@ func BuildDefaultKeyMap() KeyMap {
 			key.WithHelp("enter", "confirm"),
 		),
 		Help: key.NewBinding(
-			key.WithKeys("?"),
-			key.WithHelp("?", "help"),
+			key.WithHelp("", "help"),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("ctrl+c"),
@@ -142,16 +139,14 @@ func BuildDefaultKeyMap() KeyMap {
 			key.WithHelp("r", "remove"),
 		),
 		CloseTab: key.NewBinding(
-			key.WithKeys("ctrl+q", "ctrl+w"),
-			key.WithHelp("ctrl+q/ctrl+w", "close current tab"),
+			key.WithKeys("ctrl+q"),
+			key.WithHelp("ctrl+q", "close current tab"),
 		),
 		DumpScreen: key.NewBinding(
-			key.WithKeys("ctrl+alt+d"),
-			key.WithHelp("ctrl+alt+d", "dump screen"),
+			key.WithHelp("", "dump screen"),
 		),
 		QuickJoin: key.NewBinding(
-			key.WithKeys("ctrl+j"),
-			key.WithHelp("ctrl+j", "quick join channel"),
+			key.WithHelp("", "quick join channel"),
 		),
 		Next: key.NewBinding(
 			key.WithKeys("tab"),
@@ -161,53 +156,38 @@ func BuildDefaultKeyMap() KeyMap {
 			key.WithKeys("shift+tab"),
 			key.WithHelp("shift+tab", "previous item"),
 		),
+		TabJump: key.NewBinding(
+			key.WithKeys("alt+1", "alt+2", "alt+3", "alt+4", "alt+5", "alt+6", "alt+7", "alt+8", "alt+9"),
+			key.WithHelp("alt+1..9", "jump to tab N"),
+		),
 		InsertMode: key.NewBinding(
-			key.WithKeys("i", "I"),
+			key.WithKeys("i"),
 			key.WithHelp("i", "insert mode"),
 		),
 		InspectMode: key.NewBinding(
-			key.WithKeys("ctrl+l"),
-			key.WithHelp("ctrl+l", "user inspect mode"),
+			key.WithHelp("", "user inspect mode"),
 		),
 		ChatPopUp: key.NewBinding(
-			key.WithKeys("ctrl+p"),
-			key.WithHelp("ctrl+p", "twitch chat browser pop up"),
+			key.WithHelp("", "twitch chat browser pop up"),
 		),
 		ChannelPopUp: key.NewBinding(
-			key.WithKeys("ctrl+b"),
-			key.WithHelp("ctrl+b", "twitch channel pop up"),
+			key.WithHelp("", "twitch channel pop up"),
 		),
 		MarkLeader: key.NewBinding(
 			key.WithKeys("m"),
 			key.WithHelp("m", "mark account as main account"),
 		),
-		GoToTop: key.NewBinding(
-			key.WithKeys("t"),
-			key.WithHelp("t", "go to top"),
-		),
-		GoToBottom: key.NewBinding(
-			key.WithKeys("b"),
-			key.WithHelp("b", "go to bottom"),
-		),
 		QuickTimeout: key.NewBinding(
-			key.WithKeys("alt+t"),
-			key.WithHelp("alt+t", "quick timeout"),
+			key.WithHelp("", "quick timeout"),
 		),
 		DumpChat: key.NewBinding(
-			key.WithKeys("ctrl+alt+c"),
-			key.WithHelp("ctrl+alt+c", "dump chat"),
+			key.WithHelp("", "dump chat"),
 		),
 		CopyMessage: key.NewBinding(
-			key.WithKeys("alt+c"),
-			key.WithHelp("alt+c", "copy selected message"),
+			key.WithHelp("", "copy selected message"),
 		),
 		SearchMode: key.NewBinding(
-			key.WithKeys("/"),
-			key.WithHelp("/", "start search mode in chat window"),
-		),
-		QuickSent: key.NewBinding(
-			key.WithKeys("alt+enter"),
-			key.WithHelp("alt+enter", "send message but stay in insert mode"),
+			key.WithHelp("", "start search mode in chat window"),
 		),
 	}
 }

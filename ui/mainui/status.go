@@ -85,7 +85,6 @@ type streamStatus struct {
 
 	// pre-created styles to avoid allocations in View() (called every frame)
 	maxWidthStyle   lipgloss.Style // for padded rendering; Width set at render time
-	statusHighlight lipgloss.Style // bold + status color for slow/follower mode values
 	updateHighlight lipgloss.Style // splash highlight for update notification
 	rightAlignStyle lipgloss.Style // right-aligned layout; Width set at render time
 }
@@ -101,7 +100,6 @@ func newStreamStatus(width, height int, tab *broadcastTab, accountID, channelID 
 		spinner:   spinner.New(spinner.WithSpinner(loadingSpinner)),
 
 		maxWidthStyle:   lipgloss.NewStyle(), // Width set at render time
-		statusHighlight: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(deps.UserConfig.Theme.StatusColor)),
 		updateHighlight: lipgloss.NewStyle().Foreground(lipgloss.Color(deps.UserConfig.Theme.SplashHighlightColor)),
 		rightAlignStyle: lipgloss.NewStyle().AlignHorizontal(lipgloss.Right), // Width set at render time
 	}
@@ -163,6 +161,8 @@ func (s *streamStatus) View() string {
 	padded := s.maxWidthStyle.MaxWidth(s.width).Render
 
 	if !s.isDataFetched {
+		// Keep the fetching spinner so layout measurements during boot are stable,
+		// but suppress it once settings are known — we have nothing to say.
 		return padded(s.spinner.View() + " Fetching chat settings")
 	}
 
@@ -170,85 +170,11 @@ func (s *streamStatus) View() string {
 		return padded(s.err.Error())
 	}
 
-	state := s.tab.state.String()
-	if s.tab.chatWindow.state == searchChatWindowState {
-		state = "Search"
-	}
-
-	if s.tab.state == userInspectMode && s.tab.userInspect.chatWindow.state == searchChatWindowState {
-		state = "Inspect / Search"
-	}
-
-	stateStr := fmt.Sprintf("-- %s --", state)
-
-	settingsBuilder := strings.Builder{}
-
-	if s.tab.isUserMod && !s.tab.isModStatusAssumed {
-		settingsBuilder.WriteString("Mod")
-	}
-
-	if s.settings.SlowMode {
-		if settingsBuilder.Len() > 0 {
-			settingsBuilder.WriteString(" | ")
-		}
-
-		dur := humanizeDuration(time.Duration(s.settings.SlowModeWaitTime) * time.Second)
-		settingsBuilder.WriteString("Slow Mode: ")
-		settingsBuilder.WriteString(s.statusHighlight.Render(dur))
-	}
-
-	if s.settings.FollowerMode {
-		if settingsBuilder.Len() > 0 {
-			settingsBuilder.WriteString(" | ")
-		}
-
-		dur := humanizeDuration(time.Duration(s.settings.FollowerModeDuration) * time.Minute)
-		settingsBuilder.WriteString("Follow Only: ")
-		settingsBuilder.WriteString(s.statusHighlight.Render(dur))
-	}
-
-	if s.settings.SubscriberMode {
-		if settingsBuilder.Len() > 0 {
-			settingsBuilder.WriteString(" | ")
-		}
-
-		settingsBuilder.WriteString("Sub Only")
-	}
-
-	if s.tab.isLocalSub {
-		if settingsBuilder.Len() > 0 {
-			settingsBuilder.WriteString(" | ")
-		}
-		settingsBuilder.WriteString("Local Sub Only")
-	}
-
-	if s.tab.isUniqueOnlyChat {
-		if settingsBuilder.Len() > 0 {
-			settingsBuilder.WriteString(" | ")
-		}
-		settingsBuilder.WriteString("Unique Only")
-	}
-
-	if s.settings.EmoteMode {
-		if settingsBuilder.Len() > 0 {
-			settingsBuilder.WriteString(" | ")
-		}
-		settingsBuilder.WriteString("Emote Only")
-	}
-
-	if s.settings.UniqueChatMode {
-		if settingsBuilder.Len() > 0 {
-			settingsBuilder.WriteString(" | ")
-		}
-		settingsBuilder.WriteString("Unique Only")
-	}
-
 	if s.tab.updateInfo != nil && s.tab.updateInfo.HasUpdate {
-		if settingsBuilder.Len() > 0 {
-			settingsBuilder.WriteString(" | ")
-		}
-		settingsBuilder.WriteString(s.updateHighlight.Render("New update available: " + s.tab.updateInfo.LatestVersion))
+		return padded(s.rightAlignStyle.Width(s.width).Render(
+			s.updateHighlight.Render("New update available: " + s.tab.updateInfo.LatestVersion),
+		))
 	}
 
-	return padded(stateStr + s.rightAlignStyle.Width(s.width-lipgloss.Width(stateStr)).Render(settingsBuilder.String()))
+	return ""
 }

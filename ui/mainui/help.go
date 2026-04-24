@@ -28,7 +28,6 @@ func newHelp(height, width int, deps *DependencyContainer) *help {
 				deps.Keymap.Down,
 				deps.Keymap.Escape,
 				deps.Keymap.Confirm,
-				deps.Keymap.Help,
 			},
 		},
 		{
@@ -36,10 +35,8 @@ func newHelp(height, width int, deps *DependencyContainer) *help {
 			[]key.Binding{
 				deps.Keymap.Quit,
 				deps.Keymap.Create,
-				deps.Keymap.QuickJoin,
 				deps.Keymap.Remove,
 				deps.Keymap.CloseTab,
-				deps.Keymap.DumpScreen,
 			},
 		},
 		{
@@ -47,22 +44,13 @@ func newHelp(height, width int, deps *DependencyContainer) *help {
 			[]key.Binding{
 				deps.Keymap.Next,
 				deps.Keymap.Previous,
+				deps.Keymap.TabJump,
 			},
 		},
 		{
 			"Chat Binds",
 			[]key.Binding{
 				deps.Keymap.InsertMode,
-				deps.Keymap.InspectMode,
-				deps.Keymap.ChatPopUp,
-				deps.Keymap.ChannelPopUp,
-				deps.Keymap.GoToTop,
-				deps.Keymap.GoToBottom,
-				deps.Keymap.DumpChat,
-				deps.Keymap.QuickTimeout,
-				deps.Keymap.CopyMessage,
-				deps.Keymap.SearchMode,
-				deps.Keymap.QuickSent,
 			},
 		},
 		{

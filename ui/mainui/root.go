@@ -653,6 +653,24 @@ func (r *Root) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				r.prevTab()
 			}
 
+			if key.Matches(msg, r.dependencies.Keymap.TabJump) {
+				// Suppress while typing — the key could legitimately be part of input.
+				if len(r.tabs) > r.tabCursor && (r.tabs[r.tabCursor].State() == insertMode || r.tabs[r.tabCursor].State() == userInspectInsertMode) {
+					r.tabs[r.tabCursor], cmd = r.tabs[r.tabCursor].Update(msg)
+					return r, cmd
+				}
+
+				// TabJump keys are "alt+1" .. "alt+9"; the last rune is the target digit.
+				keyStr := msg.String()
+				if n := len(keyStr); n > 0 {
+					digit := int(keyStr[n-1] - '0')
+					if digit >= 1 && digit <= 9 {
+						r.jumpToTab(digit - 1)
+					}
+				}
+				return r, nil
+			}
+
 			if key.Matches(msg, r.dependencies.Keymap.CloseTab) {
 				if len(r.tabs) > r.tabCursor && !(r.tabs[r.tabCursor].State() == insertMode || r.tabs[r.tabCursor].State() == userInspectInsertMode || r.tabs[r.tabCursor].IsSearching()) {
 					currentTab := r.tabs[r.tabCursor]
@@ -1085,6 +1103,20 @@ func (r *Root) nextTab() {
 		r.header.SelectTab(r.tabs[r.tabCursor].ID())
 		r.tabs[r.tabCursor].Focus()
 	}
+}
+
+func (r *Root) jumpToTab(index int) {
+	if index < 0 || index >= len(r.tabs) || index == r.tabCursor {
+		return
+	}
+
+	if len(r.tabs) > r.tabCursor && r.tabCursor > -1 {
+		r.tabs[r.tabCursor].Blur()
+	}
+
+	r.tabCursor = index
+	r.header.SelectTab(r.tabs[r.tabCursor].ID())
+	r.tabs[r.tabCursor].Focus()
 }
 
 func (r *Root) prevTab() {

@@ -124,9 +124,6 @@ type chatWindow struct {
 	timeFormatWidth int
 
 	// styles
-	indicator      string
-	indicatorWidth int
-
 	subAlertStyle       lipgloss.Style
 	noticeAlertStyle    lipgloss.Style
 	clearChatAlertStyle lipgloss.Style
@@ -150,8 +147,6 @@ func newChatWindow(width, height int, deps *DependencyContainer) *chatWindow {
 	input.SetStyles(styles)
 	input.SetWidth(width)
 
-	indicator := lipgloss.NewStyle().Foreground(lipgloss.Color(deps.UserConfig.Theme.ChatIndicatorColor)).Background(lipgloss.Color(deps.UserConfig.Theme.ChatIndicatorColor)).Render(">")
-
 	timeFormat := deps.UserConfig.Settings.Chat.TimeFormat
 	timeFormatFn := func(t time.Time) string {
 		return t.Local().Format(timeFormat)
@@ -161,7 +156,7 @@ func newChatWindow(width, height int, deps *DependencyContainer) *chatWindow {
 	// Using zero-time gives the maximum-length output for variable-width formats (e.g. "3:04 PM" → "12:00 AM"),
 	// so padding may be 1 char wider than the actual time for some hours — acceptable cosmetic tradeoff.
 	timeFormatWidth := len(timeFormatFn(time.Time{}))
-	timePadWidth := timeFormatWidth + 3 // +3 matches the "  " prefix + " " separator in messageToText
+	timePadWidth := timeFormatWidth + 1 // +1 matches the " " separator after timestamp in messageToText
 
 	c := chatWindow{
 		deps:             deps,
@@ -173,8 +168,6 @@ func newChatWindow(width, height int, deps *DependencyContainer) *chatWindow {
 		timeFormatWidth:  timeFormatWidth,
 		searchInput:      input,
 
-		indicator:           indicator,
-		indicatorWidth:      lipgloss.Width(indicator),
 		subAlertStyle:       lipgloss.NewStyle().Foreground(lipgloss.Color(deps.UserConfig.Theme.ChatSubAlertColor)).Bold(true),
 		noticeAlertStyle:    lipgloss.NewStyle().Foreground(lipgloss.Color(deps.UserConfig.Theme.ChatNoticeAlertColor)).Bold(true),
 		clearChatAlertStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(deps.UserConfig.Theme.ChatClearChatColor)).Bold(true),
@@ -243,14 +236,6 @@ func (c *chatWindow) Update(msg tea.Msg) (*chatWindow, tea.Cmd) {
 				return c, nil
 			case key.Matches(msg, c.deps.Keymap.Up):
 				c.messageUp(1)
-				c.snapScroll()
-				return c, nil
-			case key.Matches(msg, c.deps.Keymap.GoToBottom):
-				c.moveToBottom()
-				c.snapScroll()
-				return c, nil
-			case key.Matches(msg, c.deps.Keymap.GoToTop):
-				c.moveToTop()
 				c.snapScroll()
 				return c, nil
 			case key.Matches(msg, c.deps.Keymap.DumpChat):
@@ -343,17 +328,13 @@ func (c *chatWindow) View() string {
 
 	src := c.lines[renderStart:renderEnd]
 
-	// Reuse a buffer to copy visible lines and apply indicator at render time.
-	// This avoids mutating c.lines and eliminates per-frame allocation.
+	// Reuse a buffer for the rendered viewport; pad the tail with empty strings
+	// when fewer source lines are available than viewport height.
 	if cap(c.visibleBuf) < height {
 		c.visibleBuf = make([]string, height)
 	}
-	visible := c.visibleBuf[:len(src)]
-	copy(visible, src)
-	c.applyIndicatorToVisible(visible, renderStart)
-
-	// Pad remaining lines with empty strings for unfilled viewport
 	lines := c.visibleBuf[:height]
+	copy(lines, src)
 	for i := len(src); i < height; i++ {
 		lines[i] = ""
 	}
@@ -371,44 +352,6 @@ func (c *chatWindow) View() string {
 	}
 
 	return strings.Join(lines, "\n")
-}
-
-// applyIndicatorToVisible applies the selection indicator to a copy of visible
-// lines. Uses the selected entry (via binary search) or falls back to the
-// bottom-most visible entry when the selected entry is outside the rendered range.
-func (c *chatWindow) applyIndicatorToVisible(visible []string, renderStart int) {
-	renderEnd := renderStart + len(visible)
-
-	// Try to find the selected entry via binary search (O(log n)).
-	_, target := c.entryForCurrentCursor()
-
-	// If the selected entry is outside the visible range, fall back to the
-	// bottom-most visible entry.
-	if target == nil || target.Position.CursorEnd < renderStart || target.Position.CursorStart >= renderEnd {
-		target = nil
-		active := c.activeEntries()
-		for i := len(active) - 1; i >= 0; i-- {
-			e := active[i]
-			if e.Position.CursorEnd < renderStart {
-				break
-			}
-			if e.Position.CursorStart < renderEnd {
-				target = e
-				break
-			}
-		}
-	}
-
-	if target == nil {
-		return
-	}
-
-	lo := max(target.Position.CursorStart, renderStart) - renderStart
-	hi := min(target.Position.CursorEnd+1, renderEnd) - renderStart
-
-	for i := lo; i < hi; i++ {
-		visible[i] = c.indicator + " " + strings.TrimPrefix(visible[i], "  ")
-	}
 }
 
 // Resize updates dimensions. Only recalculates lines when width changes since
@@ -775,7 +718,7 @@ func (c *chatWindow) handleMessageDeletion(msg chatEventMessage) {
 // buildAlertPrefix creates a standardized prefix with timestamp and styled alert label.
 // Example output: "  15:04:05 [Notice]: "
 func (c *chatWindow) buildAlertPrefix(timestamp time.Time, label string, style lipgloss.Style) string {
-	return "  " + c.dimmedStyle.Render(c.timeFormatFunc(timestamp)) + " [" + style.Render(label) + "]: "
+	return c.dimmedStyle.Render(c.timeFormatFunc(timestamp)) + " [" + style.Render(label) + "]: "
 }
 
 // formatMessageText applies word replacements and color processing to message content.
@@ -857,14 +800,14 @@ func (c *chatWindow) setUserColorModifier(content string, modifier *messageConte
 func (c *chatWindow) messageToText(event chatEventMessage) []string {
 	switch msg := event.message.(type) {
 	case error:
-		prefix := "  " + strings.Repeat(" ", c.timeFormatWidth) + " [" + c.errorAlertStyle.Render("Error") + "]: "
+		prefix := strings.Repeat(" ", c.timeFormatWidth) + " [" + c.errorAlertStyle.Render("Error") + "]: "
 		text := strings.ReplaceAll(msg.Error(), "\n", "")
 		return c.wordwrapMessage(prefix, c.formatMessageText(text, event.displayModifier))
 	case *twitchirc.PrivateMessage:
 		userRenderFunc := c.getSetUserColorFunc(msg.LoginName, msg.Color)
 
 		// Build prefix components: time, [guest channel], [badges], username
-		parts := []string{"  " + c.dimmedStyle.Render(c.timeFormatFunc(msg.TMISentTS))}
+		parts := []string{c.dimmedStyle.Render(c.timeFormatFunc(msg.TMISentTS))}
 
 		if event.channelGuestDisplayName != "" {
 			parts = append(parts, "|"+event.channelGuestDisplayName+"|")
@@ -966,7 +909,7 @@ func (c *chatWindow) messageToText(event chatEventMessage) []string {
 		return c.wordwrapMessage(prefix, c.formatMessageText(text, event.displayModifier))
 	case *twitchirc.AnnouncementMessage:
 		style := lipgloss.NewStyle().Foreground(lipgloss.Color(msg.ParamColor.RGBHex())).Bold(true)
-		prefix := "  " + c.timeFormatFunc(msg.TMISentTS) + " [" + style.Render("Announcement") + "] "
+		prefix := c.timeFormatFunc(msg.TMISentTS) + " [" + style.Render("Announcement") + "] "
 
 		_ = c.getSetUserColorFunc(msg.Login, msg.Color)
 		text := fmt.Sprintf("%s: %s",
@@ -1017,7 +960,7 @@ func (c *chatWindow) wordwrapMessage(prefix, content string) []string {
 		prefixWidth = lipgloss.Width(prefix)
 	}
 
-	contentWidthLimit := c.width - c.indicatorWidth - prefixWidth
+	contentWidthLimit := c.width - prefixWidth
 
 	// softwrap text to contentWidthLimit, if soft wrapping fails (for example in links) force break
 	wrappedText := wrap.String(wordwrap.String(content, contentWidthLimit), contentWidthLimit)

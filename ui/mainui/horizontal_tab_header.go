@@ -63,10 +63,10 @@ func (h *horizontalTabHeader) View() string {
 	pages := h.calculatePages()
 	currentPage, totalPages := h.findCurrentPage(pages)
 
-	// Top label with page indicator
-	topLabel := "[ Tabs ]"
+	// Top label: page indicator only when paging applies
+	topLabel := ""
 	if totalPages > 1 {
-		topLabel = fmt.Sprintf("[ Tabs %d/%d ]", currentPage+1, totalPages)
+		topLabel = fmt.Sprintf("[ %d/%d ]", currentPage+1, totalPages)
 	}
 
 	innerWidth := h.width - 2 // -2 for left/right │

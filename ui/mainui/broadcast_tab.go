@@ -358,6 +358,14 @@ func (t *broadcastTab) Update(msg tea.Msg) (tab, tea.Cmd) {
 			t.HandleResize()
 			return t, cmd
 		}
+	case setSteamStatusDataMessage:
+		if msg.target != t.id {
+			return t, nil
+		}
+
+		t.statusInfo, cmd = t.statusInfo.Update(msg)
+		t.HandleResize()
+		return t, cmd
 	case setChannelDataMessage:
 		if msg.targetID != t.id {
 			return t, nil
@@ -649,12 +657,6 @@ func (t *broadcastTab) Update(msg tea.Msg) (tab, tea.Cmd) {
 					return t, t.handleMessageSent(false)
 				}
 
-				// Send message - quick send
-				if key.Matches(msg, t.deps.Keymap.QuickSent) && len(t.messageInput.Value()) > 0 && (t.state == insertMode || t.state == userInspectInsertMode) {
-					t.messageInput, _ = t.messageInput.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-					return t, t.handleMessageSent(true)
-				}
-
 				// Message Accept Suggestion Template Replace
 				// always allow accept suggestion key so even new texts can be templated
 				if key.Matches(msg, t.messageInput.KeyMap.AcceptSuggestion) && len(t.messageInput.Value()) > 0 && (t.state == insertMode || t.state == userInspectInsertMode) {
@@ -793,14 +795,6 @@ func (t *broadcastTab) View() string {
 	// Message Input
 	// Status Info
 
-	si := t.streamInfo.View()
-	if si != "" {
-		builder.WriteString(si)
-		builder.WriteString("\n")
-	} else {
-		builder.WriteString("\n")
-	}
-
 	pollView := t.poll.View()
 	if pollView != "" {
 		builder.WriteString(pollView)
@@ -859,14 +853,6 @@ func (t *broadcastTab) ViewWithoutStatusBar() string {
 	// Chat Window
 	// User Inspect Window (if in user inspect mode)
 	// Message Input
-
-	si := t.streamInfo.View()
-	if si != "" {
-		builder.WriteString(si)
-		builder.WriteString("\n")
-	} else {
-		builder.WriteString("\n")
-	}
 
 	pollView := t.poll.View()
 	if pollView != "" {
@@ -963,6 +949,7 @@ func (t *broadcastTab) handleEscapePressed() {
 		t.state = userInspectMode
 		t.userInspect.chatWindow.Focus()
 		t.messageInput.Blur()
+		t.HandleResize()
 		return
 	}
 
@@ -970,6 +957,7 @@ func (t *broadcastTab) handleEscapePressed() {
 		t.state = inChatWindow
 		t.chatWindow.Focus()
 		t.messageInput.Blur()
+		t.HandleResize()
 	}
 }
 
@@ -1016,6 +1004,8 @@ func (t *broadcastTab) handleStartInsertMode() tea.Cmd {
 			t.state = userInspectInsertMode
 			t.userInspect.chatWindow.Blur()
 		}
+
+		t.HandleResize()
 
 		t.messageInput.Focus()
 		t.chatWindow.Blur()
@@ -1685,6 +1675,11 @@ func (t *broadcastTab) renderMessageInput() string {
 		return ""
 	}
 
+	// Input is only drawn while actively typing — hidden in chat / inspect view.
+	if t.state != insertMode && t.state != userInspectInsertMode {
+		return ""
+	}
+
 	inputView := t.messageInput.View()
 	borderStyle := t.inputBorderStyle
 
@@ -1751,11 +1746,8 @@ func (t *broadcastTab) HandleResize() {
 			}
 		}
 
-		streamInfo := t.streamInfo.View()
-		heightStreamInfo := lipgloss.Height(streamInfo)
-		if streamInfo == "" {
-			heightStreamInfo = 1
-		}
+		// Stream-info header is no longer rendered; it contributes no height.
+		heightStreamInfo := 0
 
 		pollView := t.poll.View()
 		pollHeight := lipgloss.Height(pollView)
