@@ -12,7 +12,6 @@ import (
 	"strings"
 	"text/template"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jellydator/ttlcache/v3"
@@ -381,9 +380,7 @@ func (t *broadcastTab) Update(msg tea.Msg) (tab, tea.Cmd) {
 
 		t.messageInput = component.NewSuggestionTextInput(t.chatWindow.userColorCache, t.deps.UserConfig.Settings.BuildCustomSuggestionMap())
 		t.messageInput.EmoteReplacer = t.deps.EmoteReplacer // enable emote replacement
-		msgInputStyles := t.messageInput.InputModel.Styles()
-		msgInputStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(lipgloss.Color(t.deps.UserConfig.Theme.InputPromptColor))
-		t.messageInput.InputModel.SetStyles(msgInputStyles)
+		t.messageInput.InputModel.Prompt = ""
 		t.messageInput.SetMaxVisibleLines(3) // allow input to grow up to 3 lines
 
 		if len(t.pendingChannelSuggestions) > 0 {
@@ -631,12 +628,19 @@ func (t *broadcastTab) Update(msg tea.Msg) (tab, tea.Cmd) {
 		if t.focused {
 			switch msg := msg.(type) {
 			case tea.KeyPressMsg:
-				// Focus message input, when not in insert mode and not in search mode inside chat window, depending on the current active chat window
-				if key.Matches(msg, t.deps.Keymap.InsertMode) &&
-					(t.state == inChatWindow && t.chatWindow.state != searchChatWindowState || t.state == userInspectMode && t.userInspect.chatWindow.state != searchChatWindowState) {
-					cmd := t.handleStartInsertMode()
-					cmds = append(cmds, cmd)
-					return t, tea.Batch(cmds...)
+				// Toggle the chat input on/off. Same key opens (when in chat/inspect view)
+				// and closes (when already in insert mode).
+				if key.Matches(msg, t.deps.Keymap.InsertMode) {
+					if (t.state == inChatWindow && t.chatWindow.state != searchChatWindowState) ||
+						(t.state == userInspectMode && t.userInspect.chatWindow.state != searchChatWindowState) {
+						cmd := t.handleStartInsertMode()
+						cmds = append(cmds, cmd)
+						return t, tea.Batch(cmds...)
+					}
+					if t.state == insertMode || t.state == userInspectInsertMode {
+						t.handleStopInsertMode()
+						return t, nil
+					}
 				}
 
 				// Open user inspect mode, where only messages from a specific user are shown
@@ -942,23 +946,19 @@ func (t *broadcastTab) handleEscapePressed() {
 		t.chatWindow.Focus()
 		t.HandleResize()
 		t.chatWindow.updatePort()
-		return
 	}
+}
 
+func (t *broadcastTab) handleStopInsertMode() {
 	if t.state == userInspectInsertMode {
 		t.state = userInspectMode
 		t.userInspect.chatWindow.Focus()
-		t.messageInput.Blur()
-		t.HandleResize()
-		return
-	}
-
-	if !t.account.IsAnonymous {
+	} else if t.state == insertMode {
 		t.state = inChatWindow
 		t.chatWindow.Focus()
-		t.messageInput.Blur()
-		t.HandleResize()
 	}
+	t.messageInput.Blur()
+	t.HandleResize()
 }
 
 func (t *broadcastTab) handleOpenBrowser(msg tea.KeyPressMsg) tea.Cmd {
@@ -1327,18 +1327,10 @@ func (t *broadcastTab) handleMessageSent(quickSend bool) tea.Cmd {
 	input := t.messageInput.Value()
 
 	if !quickSend {
-		// reset state
-		if t.state == userInspectInsertMode {
-			t.state = userInspectMode
-			t.userInspect.chatWindow.Focus()
-		} else {
-			t.state = inChatWindow
-			t.chatWindow.Focus()
-		}
-
-		t.messageInput.Blur()
+		// Stay in insert mode after send — clear value and recompute layout in case
+		// the input had grown to multiple lines.
 		t.messageInput.SetValue("")
-		t.HandleResize() // Recalculate layout after clearing input
+		t.HandleResize()
 	}
 
 	t.chatWindow.moveToBottom()
@@ -1682,22 +1674,11 @@ func (t *broadcastTab) renderMessageInput() string {
 
 	inputView := t.messageInput.View()
 	borderStyle := t.inputBorderStyle
-
-	// Labels
-	topLabel := "[ Chat ]"
-	charCount := fmt.Sprintf("[ %d / %d ]", utf8.RuneCountInString(t.messageInput.InputModel.Value()), t.messageInput.InputModel.CharLimit)
-
 	innerWidth := t.width - 2 // -2 for left/right border chars
 
-	// Top border: ┌─[ Chat ]─────...─┐
-	topFill := innerWidth - len(topLabel) - 2
-	topBorder := "┌─" + topLabel + strings.Repeat("─", topFill) + "─┐"
+	topBorder := "┌" + strings.Repeat("─", innerWidth) + "┐"
+	bottomBorder := "└" + strings.Repeat("─", innerWidth) + "┘"
 
-	// Bottom border: └─────...─[ 7 / 500 ]─┘ (counter on RIGHT)
-	bottomFill := innerWidth - len(charCount) - 2
-	bottomBorder := "└─" + strings.Repeat("─", bottomFill) + charCount + "─┘"
-
-	// Wrap input lines with │ borders
 	inputLines := strings.Split(inputView, "\n")
 	var borderedLines []string
 	for _, line := range inputLines {
@@ -1705,7 +1686,6 @@ func (t *broadcastTab) renderMessageInput() string {
 		borderedLines = append(borderedLines, "│"+line+strings.Repeat(" ", padNeeded)+"│")
 	}
 
-	// Combine
 	result := borderStyle.Render(topBorder) + "\n"
 	result += borderStyle.Render(strings.Join(borderedLines, "\n")) + "\n"
 	result += borderStyle.Render(bottomBorder)

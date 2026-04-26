@@ -108,12 +108,12 @@ func (c *KeyMap) UnmarshalYAML(value *yaml.Node) error {
 func BuildDefaultKeyMap() KeyMap {
 	return KeyMap{
 		Up: key.NewBinding(
-			key.WithKeys("up", "k"),
-			key.WithHelp("↑/k", "up"),
+			key.WithKeys("up"),
+			key.WithHelp("↑", "up"),
 		),
 		Down: key.NewBinding(
-			key.WithKeys("down", "j"),
-			key.WithHelp("↓/j", "down"),
+			key.WithKeys("down"),
+			key.WithHelp("↓", "down"),
 		),
 		Escape: key.NewBinding(
 			key.WithKeys("esc"),
@@ -127,26 +127,26 @@ func BuildDefaultKeyMap() KeyMap {
 			key.WithHelp("", "help"),
 		),
 		Quit: key.NewBinding(
-			key.WithKeys("ctrl+c"),
-			key.WithHelp("ctrl+c", "quit"),
+			key.WithKeys("ctrl+q"),
+			key.WithHelp("ctrl+q", "quit"),
 		),
 		Create: key.NewBinding(
-			key.WithKeys("ctrl+t"),
-			key.WithHelp("ctrl+t", "open new tab/add account"),
+			key.WithKeys("ctrl+c"),
+			key.WithHelp("ctrl+c", "open new tab/add account"),
 		),
 		Remove: key.NewBinding(
 			key.WithKeys("r"),
 			key.WithHelp("r", "remove"),
 		),
 		CloseTab: key.NewBinding(
-			key.WithKeys("ctrl+q"),
-			key.WithHelp("ctrl+q", "close current tab"),
+			key.WithHelp("", "close current tab"),
 		),
 		DumpScreen: key.NewBinding(
 			key.WithHelp("", "dump screen"),
 		),
 		QuickJoin: key.NewBinding(
-			key.WithHelp("", "quick join channel"),
+			key.WithKeys("ctrl+j"),
+			key.WithHelp("ctrl+j", "quick join channel"),
 		),
 		Next: key.NewBinding(
 			key.WithKeys("tab"),
@@ -161,8 +161,8 @@ func BuildDefaultKeyMap() KeyMap {
 			key.WithHelp("alt+1..9", "jump to tab N"),
 		),
 		InsertMode: key.NewBinding(
-			key.WithKeys("i"),
-			key.WithHelp("i", "insert mode"),
+			key.WithKeys("ctrl+i"),
+			key.WithHelp("ctrl+i", "toggle chat input"),
 		),
 		InspectMode: key.NewBinding(
 			key.WithHelp("", "user inspect mode"),
